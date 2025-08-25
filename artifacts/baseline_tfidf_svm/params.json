@@ -1,0 +1,6 @@
+{
+  "test_size": 0.2,
+  "seed": 11,
+  "vectorizer": "TF-IDF(1,2)",
+  "classifier": "LinearSVC(OvR)"
+}
