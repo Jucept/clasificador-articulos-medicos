@@ -2,7 +2,9 @@ import argparse, json, re, logging
 from pathlib import Path
 import pandas as pd
 import joblib
-from sklearn.metrics import f1_score, accuracy_score, classification_report
+from sklearn.metrics import f1_score, accuracy_score, classification_report, multilabel_confusion_matrix
+import matplotlib.pyplot as plt
+import numpy as np
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -56,6 +58,33 @@ def evaluate(model_path, data_path, out_dir):
             f, indent=2
         )
     pd.DataFrame(report).transpose().to_csv(out_dir / "eval_report.csv")
+
+    # --- Matrices de confusión multilabel ---
+    cm_dir = out_dir / "confusion_matrices"
+    cm_dir.mkdir(exist_ok=True)
+    ml_cm = multilabel_confusion_matrix(Y_true, Y_pred)
+    corner_labels = [["TN", "FP"], ["FN", "TP"]]
+    for i, label in enumerate(mlb.classes_):
+        tn, fp, fn, tp = ml_cm[i].ravel()
+        cm = np.array([[tn, fp], [fn, tp]])
+        pd.DataFrame(cm, index=["True 0", "True 1"], columns=["Pred 0", "Pred 1"]).to_csv(cm_dir / f"cm_{label}.csv")
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(cm, cmap=plt.cm.Purples)
+        ax.set_xticks([0, 1])
+        ax.set_yticks([0, 1])
+        ax.set_xticklabels(["Pred 0", "Pred 1"])
+        ax.set_yticklabels(["True 0", "True 1"])
+        ax.set_title(f"Confusion Matrix - {label}")
+        for (r, c), val in np.ndenumerate(cm):
+            ax.text(c, r, f"{corner_labels[r][c]}\n{val}", ha='center', va='center', fontsize=12,
+                    color="white" if val > cm.max()/2 else "black")
+        ax.set_ylabel('True label')
+        ax.set_xlabel('Predicted label')
+        plt.tight_layout()
+        fig.savefig(cm_dir / f"cm_{label}.png", dpi=140, bbox_inches="tight")
+        plt.close(fig)
+    # --- Fin matrices de confusión ---
 
     logger.info(f"Weighted F1 = {weighted_f1:.4f} | Exact Match = {exact_match:.4f}")
     logger.info(f"Resultados guardados en {out_dir}")
